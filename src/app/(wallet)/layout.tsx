@@ -6,7 +6,14 @@ import { store } from '@/server/store';
 export default async function WalletLayout({ children }: { children: React.ReactNode }) {
   const id = (await cookies()).get(SESSION_COOKIE)?.value;
   let valid = false;
-  if (id) { try { store.wallet(id); valid = true; } catch { /* Expired demo session. */ } }
+  if (id) {
+    try {
+      store.wallet(id);
+      valid = true;
+    } catch {
+      /* Expired demo session. */
+    }
+  }
   if (!valid) redirect('/login');
   return <AppShell>{children}</AppShell>;
 }

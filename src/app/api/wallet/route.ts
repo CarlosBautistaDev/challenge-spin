@@ -7,8 +7,12 @@ export async function GET(request: NextRequest) {
     const id = sessionId(request);
     const wallet = store.wallet(id);
     await delay();
-    const scenario = process.env.NEXT_PUBLIC_DEMO_CONTROLS === 'true' ? request.nextUrl.searchParams.get('state') : null;
-    if (scenario === 'error') throw new AppError('NETWORK', 'No pudimos cargar tus movimientos. Intenta nuevamente.', 503);
+    const scenario =
+      process.env.NEXT_PUBLIC_DEMO_CONTROLS === 'true'
+        ? request.nextUrl.searchParams.get('state')
+        : null;
+    if (scenario === 'error')
+      throw new AppError('NETWORK', 'No pudimos cargar tus movimientos. Intenta nuevamente.', 503);
     return json({ ...wallet, movements: scenario === 'empty' ? [] : wallet.movements });
   });
 }

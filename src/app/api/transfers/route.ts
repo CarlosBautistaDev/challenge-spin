@@ -7,7 +7,8 @@ export async function POST(request: NextRequest) {
   return handle(async () => {
     const id = sessionId(request);
     const input = transferSchema.safeParse(await body(request));
-    if (!input.success) throw new AppError('VALIDATION', 'Revisa el monto, destinatario y concepto de tu envío.');
+    if (!input.success)
+      throw new AppError('VALIDATION', 'Revisa el monto, destinatario y concepto de tu envío.');
     const scenario = demoScenario(request);
     await delay(scenario === 'timeout' ? 1800 : 650);
     return json(await store.transfer(id, input.data, scenario), 201);
