@@ -39,6 +39,7 @@ export type TransferInput = z.infer<typeof transferSchema>;
 export const receiptSchema = z.object({
   id: z.string(),
   amountCents: z.number().int(),
+  sender: z.object({ name: z.string(), identity: z.string() }),
   recipient: contactSchema,
   concept: z.string(),
   createdAt: z.iso.datetime(),
@@ -46,6 +47,11 @@ export const receiptSchema = z.object({
   status: z.literal('completed'),
 });
 export type Receipt = z.infer<typeof receiptSchema>;
+export const operationResultSchema = z.discriminatedUnion('status', [
+  z.object({ status: z.literal('completed'), receipt: receiptSchema }),
+  z.object({ status: z.literal('unknown') }),
+]);
+export type OperationResult = z.infer<typeof operationResultSchema>;
 export const movementSchema = z.object({
   id: z.string(),
   title: z.string(),
@@ -77,5 +83,5 @@ export const errorCodeSchema = z.enum([
 ]);
 export type ErrorCode = z.infer<typeof errorCodeSchema>;
 export const apiErrorSchema = z.object({
-  error: z.object({ code: errorCodeSchema, message: z.string() }),
+  error: z.object({ code: errorCodeSchema, message: z.string(), requestId: z.uuid().optional() }),
 });

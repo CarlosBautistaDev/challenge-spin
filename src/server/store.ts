@@ -3,12 +3,30 @@ import {
   loginSchema,
   transferSchema,
   type Contact,
+  type OperationResult,
   type Receipt,
   type Scenario,
   type TransferInput,
   type Wallet,
 } from '@/lib/contracts';
 import { AppError } from '@/lib/errors';
+import { createDemoWallet } from './fixtures';
+import { chooseDemoScenario, simulateBeforeCommit, simulateAfterCommit } from './simulation';
+
+export type TransferEvent = 'transfer.committed' | 'transfer.replayed';
+export type TransferObserver = (event: TransferEvent, operationId: string) => void;
+
+function observeSafely(
+  observer: TransferObserver | undefined,
+  event: TransferEvent,
+  operationId: string,
+) {
+  try {
+    observer?.(event, operationId);
+  } catch {
+    // Diagnostics never change a financial outcome.
+  }
+}
 
 export const SESSION_TTL_SECONDS = 60 * 60 * 24;
 type Session = {
@@ -36,51 +54,7 @@ export class WalletStore {
     this.sessions.set(id, {
       expiresAt: now + SESSION_TTL_SECONDS * 1000,
       payments: new Map(),
-      wallet: {
-        id: crypto.randomUUID(),
-        user: { name: 'Alex Morgan', identity: result.data.identity },
-        balanceCents: 2450000,
-        contacts: [
-          { id: 'ana', name: 'Ana López', identity: '5510102030' },
-          { id: 'diego', name: 'Diego García', identity: '5520203040' },
-          { id: 'sofia', name: 'Sofía Martínez', identity: '5530304050' },
-          { id: 'pablo', name: 'Pablo Ruiz', identity: '5540405060' },
-        ],
-        movements: [
-          {
-            id: 'seed-1',
-            title: 'Depósito recibido',
-            subtitle: 'Transferencia · Nómina',
-            kind: 'incoming',
-            amountCents: 1800000,
-            createdAt: new Date(now - 3600000).toISOString(),
-          },
-          {
-            id: 'seed-2',
-            title: 'Café de la mañana',
-            subtitle: 'Compra · Cafetería',
-            kind: 'purchase',
-            amountCents: 8500,
-            createdAt: new Date(now - 7200000).toISOString(),
-          },
-          {
-            id: 'seed-3',
-            title: 'Ana López',
-            subtitle: 'Transferencia · Cena del viernes',
-            kind: 'outgoing',
-            amountCents: 35000,
-            createdAt: new Date(now - 86400000).toISOString(),
-          },
-          {
-            id: 'seed-4',
-            title: 'Compra en OXXO',
-            subtitle: 'Compra · Tienda',
-            kind: 'purchase',
-            amountCents: 15650,
-            createdAt: new Date(now - 90000000).toISOString(),
-          },
-        ],
-      },
+      wallet: createDemoWallet(result.data.identity, now),
     });
     return id;
   }
@@ -124,6 +98,7 @@ export class WalletStore {
     id: string,
     input: TransferInput,
     scenario: Scenario = 'random',
+    observer?: TransferObserver,
   ): Promise<Receipt> {
     const session = this.session(id);
     const parsed = transferSchema.safeParse(input);
@@ -145,6 +120,7 @@ export class WalletStore {
           'La clave de esta operación ya se usó con otros datos.',
           409,
         );
+      observeSafely(observer, 'transfer.replayed', request.idempotencyKey);
       return structuredClone(previous.receipt);
     }
     const recipient = session.wallet.contacts.find((c) => c.id === request.recipientId);
@@ -156,30 +132,14 @@ export class WalletStore {
         'Tu saldo disponible no alcanza para este envío.',
         422,
       );
-    const outcome = scenario === 'random' ? this.chooseScenario() : scenario;
-    if (outcome === 'network')
-      throw new AppError(
-        'NETWORK',
-        'No pudimos conectar con el servicio. Tu dinero no se movió.',
-        503,
-      );
-    if (outcome === 'insufficient')
-      throw new AppError(
-        'INSUFFICIENT_FUNDS',
-        'El servicio rechazó el envío por fondos insuficientes. Revisa tu saldo.',
-        422,
-      );
-    if (outcome === 'unknown')
-      throw new AppError(
-        'UNKNOWN',
-        'No pudimos completar el envío. Intenta de nuevo en un momento.',
-        500,
-      );
+    const outcome = scenario === 'random' ? chooseDemoScenario(this.random) : scenario;
+    simulateBeforeCommit(outcome);
     if (session.payments.size >= 500)
       throw new AppError('VALIDATION', 'Llegaste al límite de operaciones de esta sesión demo.');
     const receipt: Receipt = {
       id: crypto.randomUUID(),
       amountCents: request.amountCents,
+      sender: structuredClone(session.wallet.user),
       recipient: structuredClone(recipient),
       concept: request.concept,
       createdAt: new Date().toISOString(),
@@ -198,21 +158,22 @@ export class WalletStore {
       createdAt: receipt.createdAt,
       receiptId: receipt.id,
     });
-    if (outcome === 'timeout')
-      throw new AppError(
-        'TIMEOUT',
-        'La confirmación tardó demasiado. Verifica el resultado antes de iniciar otro envío.',
-        504,
-      );
+    observeSafely(observer, 'transfer.committed', request.idempotencyKey);
+    simulateAfterCommit(outcome);
     return structuredClone(receipt);
   }
-  private chooseScenario(): Exclude<Scenario, 'random'> {
-    const value = this.random();
-    if (value < 0.6) return 'success';
-    if (value < 0.7) return 'network';
-    if (value < 0.8) return 'insufficient';
-    if (value < 0.9) return 'timeout';
-    return 'unknown';
+  operation(id: string, idempotencyKey: string, expectedWalletId: string): OperationResult {
+    const session = this.session(id);
+    if (session.wallet.id !== expectedWalletId)
+      throw new AppError(
+        'SESSION_CHANGED',
+        'La sesión cambió. Vuelve a entrar antes de continuar.',
+        409,
+      );
+    const payment = session.payments.get(idempotencyKey);
+    return payment
+      ? { status: 'completed', receipt: structuredClone(payment.receipt) }
+      : { status: 'unknown' };
   }
   receipt(id: string, receiptId: string): Receipt {
     for (const { receipt } of this.session(id).payments.values())

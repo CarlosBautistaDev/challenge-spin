@@ -6,7 +6,7 @@ import { body, delay, handle, json, sessionId } from '@/server/http';
 import { store } from '@/server/store';
 const inputSchema = contactInputSchema.extend({ walletId: z.uuid() });
 export async function POST(request: NextRequest) {
-  return handle(async () => {
+  return handle(request, async () => {
     const id = sessionId(request);
     const input = inputSchema.safeParse(await body(request));
     if (!input.success) throw new AppError('VALIDATION', 'Revisa los datos del contacto.');

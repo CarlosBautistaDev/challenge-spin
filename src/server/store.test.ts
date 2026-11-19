@@ -78,6 +78,67 @@ describe('wallet service', () => {
     expect(store.wallet(session).balanceCents).toBe(2324950);
     expect(store.receipt(session, receipts[0].id)).toEqual(receipts[0]);
   });
+  it('keeps the sender snapshot on the stored receipt', async () => {
+    const receipt = await store.transfer(session, payment(), 'success');
+    expect(receipt.sender).toEqual({ name: 'Alex Morgan', identity: 'demo@spin.test' });
+    receipt.sender.name = 'Changed in the client';
+    expect(store.receipt(session, receipt.id).sender.name).toBe('Alex Morgan');
+  });
+  it('looks up unknown and completed operations without changing the wallet', async () => {
+    const input = payment();
+    const before = store.wallet(session);
+    expect(store.operation(session, input.idempotencyKey, input.walletId)).toEqual({
+      status: 'unknown',
+    });
+    expect(store.wallet(session)).toEqual(before);
+    await expect(store.transfer(session, input, 'timeout')).rejects.toMatchObject({
+      code: 'TIMEOUT',
+    });
+    const after = store.wallet(session);
+    const result = store.operation(session, input.idempotencyKey, input.walletId);
+    expect(result).toMatchObject({ status: 'completed', receipt: { amountCents: 125050 } });
+    expect(store.wallet(session)).toEqual(after);
+    if (result.status === 'completed') result.receipt.concept = 'Changed';
+    expect(store.operation(session, input.idempotencyKey, input.walletId)).toMatchObject({
+      receipt: { concept: 'Comida' },
+    });
+  });
+  it('isolates operation lookups and verifies the wallet generation', async () => {
+    const input = payment();
+    await store.transfer(session, input, 'success');
+    const other = store.createSession('other@example.com');
+    expect(store.operation(other, input.idempotencyKey, store.wallet(other).id)).toEqual({
+      status: 'unknown',
+    });
+    expect(() => store.operation(other, input.idempotencyKey, input.walletId)).toThrow(
+      'sesión cambió',
+    );
+    expect(() => store.operation('missing', input.idempotencyKey, input.walletId)).toThrow(
+      'sesión',
+    );
+  });
+  it('reports one commit and a replay even when the first confirmation times out', async () => {
+    const input = payment();
+    const events: { event: string; operationId: string }[] = [];
+    const observe = (event: string, operationId: string) => events.push({ event, operationId });
+    await expect(store.transfer(session, input, 'timeout', observe)).rejects.toMatchObject({
+      code: 'TIMEOUT',
+    });
+    await store.transfer(session, input, 'success', observe);
+    expect(events).toEqual([
+      { event: 'transfer.committed', operationId: input.idempotencyKey },
+      { event: 'transfer.replayed', operationId: input.idempotencyKey },
+    ]);
+    expect(store.wallet(session).balanceCents).toBe(2324950);
+  });
+  it('does not turn a committed payment into a failure if its observer fails', async () => {
+    const input = payment();
+    const receipt = await store.transfer(session, input, 'success', () => {
+      throw new Error('log sink unavailable');
+    });
+    expect(receipt.status).toBe('completed');
+    expect(store.wallet(session).balanceCents).toBe(2324950);
+  });
   it('rejects reused key with a different payload', async () => {
     const input = payment();
     await store.transfer(session, input, 'success');
