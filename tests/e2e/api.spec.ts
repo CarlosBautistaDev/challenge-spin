@@ -56,3 +56,86 @@ test('API rejects a payment reviewed before the session changed', async ({ reque
   expect((await response.json()).error.code).toBe('SESSION_CHANGED');
   expect((await (await request.get('/api/wallet')).json()).balanceCents).toBe(2450000);
 });
+
+test('concurrent HTTP payments cannot overdraw and a replay remains valid after the balance changes', async ({
+  request,
+}) => {
+  await request.post('/api/session', { data: { identity: 'concurrency@example.com' } });
+  const wallet = await (await request.get('/api/wallet')).json();
+  const headers = { 'x-demo-scenario': 'success' };
+  const inputs = [0, 1].map(() => ({
+    walletId: wallet.id,
+    amountCents: 2000000,
+    recipientId: 'ana',
+    concept: 'Concurrencia',
+    idempotencyKey: crypto.randomUUID(),
+  }));
+  const responses = await Promise.all(
+    inputs.map((data) => request.post('/api/transfers', { data, headers })),
+  );
+  expect(responses.map((r) => r.status()).sort()).toEqual([201, 422]);
+  const winner = responses.findIndex((r) => r.status() === 201);
+  const receipt = await responses[winner].json();
+  const replay = await request.post('/api/transfers', { data: inputs[winner], headers });
+  expect(replay.status()).toBe(201);
+  expect(await replay.json()).toEqual(receipt);
+  expect(replay.headers()['x-request-id']).not.toBe(responses[winner].headers()['x-request-id']);
+  const after = await (await request.get('/api/wallet')).json();
+  expect(after.balanceCents).toBe(450000);
+  expect(after.movements).toHaveLength(wallet.movements.length + 1);
+});
+
+test('concurrent identical requests produce one receipt and one debit', async ({ request }) => {
+  await request.post('/api/session', { data: { identity: 'duplicates@example.com' } });
+  const wallet = await (await request.get('/api/wallet')).json();
+  const input = {
+    walletId: wallet.id,
+    amountCents: 10000,
+    recipientId: 'ana',
+    concept: '',
+    idempotencyKey: crypto.randomUUID(),
+  };
+  const responses = await Promise.all(
+    [0, 1].map(() =>
+      request.post('/api/transfers', { data: input, headers: { 'x-demo-scenario': 'success' } }),
+    ),
+  );
+  expect(responses.map((r) => r.status())).toEqual([201, 201]);
+  expect(await responses[0].json()).toEqual(await responses[1].json());
+  const after = await (await request.get('/api/wallet')).json();
+  expect(after.balanceCents).toBe(2440000);
+  expect(after.movements).toHaveLength(wallet.movements.length + 1);
+});
+
+test('operation lookup is read only, recovers a lost confirmation and isolates sessions', async ({
+  request,
+}) => {
+  await request.post('/api/session', { data: { identity: 'lookup@example.com' } });
+  const wallet = await (await request.get('/api/wallet')).json();
+  const operationId = crypto.randomUUID();
+  const url = `/api/operations/${operationId}?walletId=${wallet.id}`;
+  expect(await (await request.get(url)).json()).toEqual({ status: 'unknown' });
+  const timeout = await request.post('/api/transfers', {
+    data: {
+      walletId: wallet.id,
+      amountCents: 125050,
+      recipientId: 'ana',
+      concept: 'Consulta',
+      idempotencyKey: operationId,
+    },
+    headers: { 'x-demo-scenario': 'timeout' },
+  });
+  expect(timeout.status()).toBe(504);
+  expect((await timeout.json()).error.requestId).toBe(timeout.headers()['x-request-id']);
+  const committed = await (await request.get('/api/wallet')).json();
+  const result = await (await request.get(url)).json();
+  expect(result.status).toBe('completed');
+  expect(result.receipt.sender.identity).toBe('lookup@example.com');
+  expect(await (await request.get('/api/wallet')).json()).toEqual(committed);
+  await request.post('/api/session', { data: { identity: 'other@example.com' } });
+  expect((await request.get(url)).status()).toBe(409);
+  const other = await (await request.get('/api/wallet')).json();
+  expect(
+    await (await request.get(`/api/operations/${operationId}?walletId=${other.id}`)).json(),
+  ).toEqual({ status: 'unknown' });
+});

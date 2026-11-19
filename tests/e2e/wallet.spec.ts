@@ -72,11 +72,14 @@ for (const scenario of ['network', 'insufficient', 'unknown', 'timeout']) {
     await page.getByRole('button', { name: 'Confirmar envío' }).click();
     await expect(page.locator('.transfer-error')).toBeVisible();
     await page.getByLabel('Resultado del siguiente envío').selectOption('success');
-    await page
-      .getByRole('button', {
-        name: scenario === 'timeout' ? 'Verificar resultado' : 'Reintentar envío',
-      })
-      .click();
+    if (scenario === 'insufficient') {
+      await page.getByRole('button', { name: 'Reintentar envío', exact: true }).click();
+    } else {
+      await page.getByRole('button', { name: 'Verificar resultado', exact: true }).click();
+      if (scenario !== 'timeout') {
+        await page.getByRole('button', { name: 'Reintentar mismo envío', exact: true }).click();
+      }
+    }
     await expect(page.getByRole('heading', { name: '¡Envío completado!' })).toBeVisible();
     await page.getByRole('link', { name: 'Volver a mi wallet' }).click();
     await expect(page.getByLabel('Saldo de tu wallet')).toContainText('$23,249.50');
