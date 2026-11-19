@@ -54,6 +54,8 @@ test('successful transfer updates balance, receipt survives refresh and remains 
   await prepareTransfer(page);
   await a11y(page);
   await page.getByRole('button', { name: 'Confirmar envío' }).click();
+  await expect(page).toHaveURL(/\/transfer$/);
+  await page.getByRole('link', { name: 'Ver comprobante', exact: true }).click();
   await expect(page.getByRole('heading', { name: '¡Envío completado!' })).toBeVisible();
   await expect(page.locator('.review-amount')).toHaveText('$1,250.50');
   await page.reload();
@@ -80,6 +82,8 @@ for (const scenario of ['network', 'insufficient', 'unknown', 'timeout']) {
         await page.getByRole('button', { name: 'Reintentar mismo envío', exact: true }).click();
       }
     }
+    await expect(page).toHaveURL(/\/transfer$/);
+    await page.getByRole('link', { name: 'Ver comprobante', exact: true }).click();
     await expect(page.getByRole('heading', { name: '¡Envío completado!' })).toBeVisible();
     await page.getByRole('link', { name: 'Volver a mi wallet' }).click();
     await expect(page.getByLabel('Saldo de tu wallet')).toContainText('$23,249.50');
@@ -118,6 +122,8 @@ test('saves a new recipient and uses it for a transfer', async ({ page }) => {
   await page.getByLabel('Resultado del siguiente envío').selectOption('success');
   await page.getByRole('button', { name: 'Revisar envío' }).click();
   await page.getByRole('button', { name: 'Confirmar envío' }).click();
+  await expect(page).toHaveURL(/\/transfer$/);
+  await page.getByRole('link', { name: 'Ver comprobante', exact: true }).click();
   await expect(page.getByRole('heading', { name: '¡Envío completado!' })).toBeVisible();
   await expect(page.locator('.review-recipient')).toContainText('Mariana Torres');
   await page.goto('/contacts');
@@ -156,6 +162,8 @@ test('recovers a pending operation after navigating away and reloading', async (
   await expect(page.locator('.transfer-error')).toContainText('envío pendiente');
   await expect(page.locator('.review-recipient')).toContainText('Ana López');
   await page.getByRole('button', { name: 'Verificar resultado' }).click();
+  await expect(page).toHaveURL(/\/transfer$/);
+  await page.getByRole('link', { name: 'Ver comprobante', exact: true }).click();
   await expect(page.getByRole('heading', { name: '¡Envío completado!' })).toBeVisible();
   await page.getByRole('link', { name: 'Volver a mi wallet' }).click();
   await expect(page.getByLabel('Saldo de tu wallet')).toContainText('$23,249.50');

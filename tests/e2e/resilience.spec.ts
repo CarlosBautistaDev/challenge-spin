@@ -84,6 +84,8 @@ test('a real lost HTTP response is recovered through GET without resending the p
   );
   await page.getByRole('button', { name: 'Verificar resultado' }).click();
   expect((await lookup).status()).toBe(200);
+  await expect(page).toHaveURL(/\/transfer$/);
+  await page.getByRole('link', { name: 'Ver comprobante', exact: true }).click();
   await expect(page).toHaveURL(new RegExp(`/receipt/${committedId}$`));
   expect(posts).toBe(1);
   await page.getByRole('link', { name: 'Volver a mi wallet' }).click();

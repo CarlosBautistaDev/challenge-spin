@@ -1,7 +1,7 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Check, Wallet as WalletIcon } from 'lucide-react';
 import {
   DemoPanel,
@@ -57,22 +57,13 @@ export function TransferScreen() {
   );
 }
 function TransferFlow({ wallet, initialRecipient }: { wallet: Wallet; initialRecipient: string }) {
-  const router = useRouter();
-  const pathname = usePathname();
   const { state, edit } = useTransfer();
   const [scenario, setScenario] = useState<Scenario>('random');
   const [focusAmount, setFocusAmount] = useState(false);
-  const previousStep = useRef(state.step);
-  useEffect(() => {
-    // Navigate only for a completion observed by this mounted transfer route.
-    // Returning later to an already successful operation leaves its result reviewable.
-    if (state.step === 'success' && previousStep.current !== 'success' && pathname === '/transfer')
-      router.replace(`/receipt/${state.receiptId}`);
-    previousStep.current = state.step;
-  }, [state, pathname, router]);
   if (state.step === 'error' && isSessionError(state.error))
     return <ErrorState error={state.error} />;
   const isReview = state.step !== 'editing';
+  const isDone = state.step === 'success';
   const busy = state.step === 'submitting' || state.step === 'verifying';
   return (
     <>
@@ -82,10 +73,13 @@ function TransferFlow({ wallet, initialRecipient }: { wallet: Wallet; initialRec
             <li className={!isReview ? 'active' : ''} aria-current={!isReview ? 'step' : undefined}>
               <span>{isReview ? <Check size={13} /> : '1'}</span>Datos
             </li>
-            <li className={isReview ? 'active' : ''} aria-current={isReview ? 'step' : undefined}>
-              <span>2</span>Revisión
+            <li
+              className={isReview && !isDone ? 'active' : ''}
+              aria-current={isReview && !isDone ? 'step' : undefined}
+            >
+              <span>{isDone ? <Check size={13} /> : '2'}</span>Revisión
             </li>
-            <li>
+            <li className={isDone ? 'active' : ''} aria-current={isDone ? 'step' : undefined}>
               <span>3</span>Listo
             </li>
           </ol>
