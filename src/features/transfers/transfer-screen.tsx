@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { ArrowLeft, Check, Wallet as WalletIcon } from 'lucide-react';
@@ -29,6 +29,13 @@ const outcomes: { value: Scenario; label: string }[] = [
 export function TransferScreen() {
   const query = useWallet();
   const searchParams = useSearchParams();
+  const { startNew } = useTransfer();
+
+  useLayoutEffect(() => {
+    // A completed transfer stays visible until the user leaves this screen.
+    // On entry, startNew resets only a completed transfer.
+    startNew();
+  }, [startNew]);
   return (
     <>
       <Link href="/home" className="back-link">

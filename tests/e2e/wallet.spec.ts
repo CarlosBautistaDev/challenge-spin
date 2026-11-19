@@ -55,7 +55,20 @@ test('successful transfer updates balance, receipt survives refresh and remains 
   await a11y(page);
   await page.getByRole('button', { name: 'Confirmar envío' }).click();
   await expect(page).toHaveURL(/\/transfer$/);
-  await page.getByRole('link', { name: 'Ver comprobante', exact: true }).click();
+  const receiptHref = await page
+    .getByRole('link', { name: 'Ver comprobante', exact: true })
+    .getAttribute('href');
+  expect(receiptHref).toMatch(/^\/receipt\//);
+  await page.getByRole('link', { name: 'Volver a mi wallet' }).click();
+  await expect(page).toHaveURL(/\/home$/);
+  await page.getByRole('link', { name: 'Enviar dinero', exact: true }).first().click();
+  await expect(page.getByLabel('¿Cuánto quieres enviar?')).toHaveValue('');
+  await expect(page.getByLabel('Concepto', { exact: true })).toHaveValue('');
+  await expect(page.getByRole('radio', { name: /Ana López/ })).not.toBeChecked();
+  await page.getByRole('link', { name: 'Volver a mi wallet' }).click();
+  const movement = page.getByRole('link', { name: /Ana López.*Cena del viernes/ });
+  await expect(movement).toHaveAttribute('href', receiptHref ?? '');
+  await movement.click();
   await expect(page.getByRole('heading', { name: '¡Envío completado!' })).toBeVisible();
   await expect(page.locator('.review-amount')).toHaveText('$1,250.50');
   await page.reload();
