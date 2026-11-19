@@ -136,4 +136,4 @@ Los logs JSON utilizan campos permitidos: ruta normalizada, método, referencia 
 
 ## 17. Dedicación y alcance de entrega
 
-La dedicación total se estima en aproximadamente **6 horas**, incluyendo análisis, implementación asistida, revisión, pruebas y documentación. El registro de entrega está en [README](README.md#tiempo-invertido); se trata de una estimación, no de un cronometraje exacto. Las prioridades fueron el flujo solicitado, la consistencia de las operaciones, su recuperación y la capacidad de probar y explicar las decisiones.
+La dedicación total se estima en aproximadamente **6 horas**, incluyendo análisis, implementación asistida, revisión, pruebas y documentación.

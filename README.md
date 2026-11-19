@@ -20,7 +20,7 @@ cp .env.example .env.local
 npm run dev
 ```
 
-Abre [localhost:3000](http://localhost:3000). Pulsa **Usar cuenta de prueba** y después **Entrar a mi wallet**. También acepta un correo válido o un teléfono mexicano de 10 dígitos. No se requiere contraseña.
+Abre [localhost:3000](http://localhost:3000). Pulsa **Usar cuenta de prueba** y después **Entrar a mi wallet**. También acepta un correo válido o un teléfono de 10 dígitos. No se requiere contraseña.
 
 Para usar otro puerto:
 
@@ -210,13 +210,9 @@ La configuración se valida antes de ejecutar cada operación del API. Si es inv
 - **Sin internacionalización:** textos en español, moneda MXN, fechas visibles en Ciudad de México.
 - **Comprobante:** impresión del navegador, sin PDF firmado ni validez bancaria.
 - **Accesibilidad:** hay pruebas automáticas, foco visible, semántica y movimiento reducido; no constituyen una certificación ni sustituyen la revisión con lectores de pantalla.
-- **Dependencias de desarrollo:** al verificar el 18 de noviembre de 2026, `npm audit` reportó una alerta de ReDoS en `picomatch <=4.0.7`, propagada a herramientas de lint/tests. No había una versión corregida publicada en el registro consultado. `npm audit --omit=dev` reportó **0 vulnerabilidades**. No se forzaron downgrades incompatibles; conviene volver a auditar antes de integrar o publicar.
+- **Dependencias de desarrollo:** al verificar el 17 de noviembre de 2026, `npm audit` reportó una alerta de ReDoS en `picomatch <=4.0.7`, propagada a herramientas de lint/tests. No había una versión corregida publicada en el registro consultado. `npm audit --omit=dev` reportó **0 vulnerabilidades**. No se forzaron downgrades incompatibles; conviene volver a auditar antes de integrar o publicar.
 
 ## Decisiones y uso de IA
 
 - [DECISIONS.md](DECISIONS.md): arquitectura, alternativas, edge cases y evolución a producción.
 - [AI_USAGE.md](AI_USAGE.md): herramientas utilizadas, revisión, correcciones y responsabilidad de validación humana.
-
-## Tiempo invertido
-
-**Dedicación total estimada: aproximadamente 6 horas.** Incluye análisis del enunciado, decisiones de arquitectura, implementación asistida, revisión, pruebas y documentación. Es una estimación de dedicación, no un registro exacto de cronómetro ni una declaración de seis horas de programación manual.
