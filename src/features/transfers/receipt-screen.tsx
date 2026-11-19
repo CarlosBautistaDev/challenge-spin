@@ -2,14 +2,21 @@
 import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { ArrowLeft, ArrowUpRight, Check, Printer, ShieldCheck } from 'lucide-react';
-import { Avatar, Button, ErrorState, LoadingState } from '@/components/ui';
+import { Avatar, Button, ErrorState, LoadingState, QueryRefreshWarning } from '@/components/ui';
+import { useWalletSession } from '@/features/auth/wallet-session';
 import { api } from '@/lib/api';
 import { receiptSchema } from '@/lib/contracts';
 import { formatMoney } from '@/lib/money';
+import { formatWalletDate } from '@/lib/date';
+import { isSessionError } from '@/lib/errors';
+import { useTransfer } from './use-transfer';
 export function ReceiptScreen({ id }: { id: string }) {
+  const { walletId } = useWalletSession();
+  const { startNew } = useTransfer();
   const { data, isPending, error, refetch } = useQuery({
-    queryKey: ['receipt', id],
-    queryFn: () => api(`/api/transfers/${encodeURIComponent(id)}`, receiptSchema),
+    queryKey: ['receipt', walletId, id],
+    queryFn: ({ signal }) =>
+      api(`/api/transfers/${encodeURIComponent(id)}`, receiptSchema, { signal }),
     staleTime: Infinity,
     retry: false,
   });
@@ -20,11 +27,12 @@ export function ReceiptScreen({ id }: { id: string }) {
       </Link>
       {isPending ? (
         <LoadingState label="Buscando tu comprobante…" />
-      ) : error ? (
+      ) : error && (!data || isSessionError(error)) ? (
         <ErrorState error={error} retry={() => void refetch()} />
       ) : (
         data && (
           <>
+            {error && <QueryRefreshWarning error={error} retry={() => void refetch()} />}
             <article className="panel receipt-panel">
               <header className="receipt-heading">
                 <span className="success-icon">
@@ -45,7 +53,7 @@ export function ReceiptScreen({ id }: { id: string }) {
               <dl className="detail-list">
                 <div>
                   <dt>Desde</dt>
-                  <dd>Mi wallet · Alex Morgan</dd>
+                  <dd>Mi wallet · {data.sender.name}</dd>
                 </div>
                 <div>
                   <dt>Concepto</dt>
@@ -55,11 +63,7 @@ export function ReceiptScreen({ id }: { id: string }) {
                   <dt>Fecha y hora</dt>
                   <dd>
                     <time dateTime={data.createdAt}>
-                      {new Intl.DateTimeFormat('es-MX', {
-                        dateStyle: 'medium',
-                        timeStyle: 'short',
-                        timeZone: 'America/Mexico_City',
-                      }).format(new Date(data.createdAt))}
+                      {formatWalletDate(data.createdAt, 'receipt')}
                     </time>
                     <br />
                     <small>Ciudad de México</small>
@@ -88,7 +92,7 @@ export function ReceiptScreen({ id }: { id: string }) {
               <Button variant="secondary" onClick={() => window.print()}>
                 <Printer size={18} /> Guardar comprobante
               </Button>
-              <Link href="/transfer" className="button button-primary">
+              <Link href="/transfer" className="button button-primary" onClick={startNew}>
                 Hacer otro envío <ArrowUpRight size={18} />
               </Link>
             </div>

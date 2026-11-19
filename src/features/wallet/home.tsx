@@ -14,8 +14,18 @@ import {
   Wallet,
   Check,
 } from 'lucide-react';
-import { Avatar, Button, DemoPanel, ErrorState, LoadingState, PageHeading } from '@/components/ui';
+import {
+  Avatar,
+  Button,
+  DemoPanel,
+  ErrorState,
+  LoadingState,
+  PageHeading,
+  QueryRefreshWarning,
+} from '@/components/ui';
 import { formatMoney } from '@/lib/money';
+import { formatWalletDate } from '@/lib/date';
+import { isSessionError } from '@/lib/errors';
 import type { Movement } from '@/lib/contracts';
 import { useWallet } from './use-wallet';
 
@@ -43,9 +53,7 @@ function MovementRow({ movement }: { movement: Movement }) {
           {formatMoney(movement.amountCents)}
         </strong>
         <time dateTime={movement.createdAt}>
-          {new Intl.DateTimeFormat('es-MX', { day: 'numeric', month: 'short' }).format(
-            new Date(movement.createdAt),
-          )}
+          {formatWalletDate(movement.createdAt, 'movement')}
         </time>
       </div>
       {movement.receiptId && <ArrowUpRight size={16} aria-hidden="true" className="muted" />}
@@ -81,11 +89,12 @@ export function HomeScreen() {
       />
       {isPending ? (
         <LoadingState />
-      ) : error ? (
+      ) : error && (!data || isSessionError(error)) ? (
         <ErrorState error={error} retry={() => void refetch()} />
       ) : (
         data && (
           <>
+            {error && <QueryRefreshWarning error={error} retry={() => void refetch()} />}
             <div className="overview-grid">
               <section className="balance-card" aria-label="Saldo de tu wallet">
                 <div className="balance-top">
