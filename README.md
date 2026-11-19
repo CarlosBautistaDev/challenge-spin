@@ -216,3 +216,7 @@ La configuración se valida antes de ejecutar cada operación del API. Si es inv
 
 - [DECISIONS.md](DECISIONS.md): arquitectura, alternativas, edge cases y evolución a producción.
 - [AI_USAGE.md](AI_USAGE.md): herramientas utilizadas, revisión, correcciones y responsabilidad de validación humana.
+
+## Dedicación y alcance de entrega
+
+La dedicación total se estima en aproximadamente **6 horas**, incluyendo análisis, implementación asistida, revisión, pruebas y documentación.
