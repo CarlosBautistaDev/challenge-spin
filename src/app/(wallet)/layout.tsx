@@ -3,17 +3,25 @@ import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { SESSION_COOKIE } from '@/server/http';
 import { store } from '@/server/store';
+import { WalletSessionProvider } from '@/features/auth/wallet-session';
+import { TransferProvider } from '@/features/transfers/transfer-provider';
+import type { Wallet } from '@/lib/contracts';
 export default async function WalletLayout({ children }: { children: React.ReactNode }) {
   const id = (await cookies()).get(SESSION_COOKIE)?.value;
-  let valid = false;
+  let wallet: Wallet | undefined;
   if (id) {
     try {
-      store.wallet(id);
-      valid = true;
+      wallet = store.wallet(id);
     } catch {
       /* Expired demo session. */
     }
   }
-  if (!valid) redirect('/login');
-  return <AppShell>{children}</AppShell>;
+  if (!wallet) redirect('/login');
+  return (
+    <WalletSessionProvider key={wallet.id} session={{ walletId: wallet.id, user: wallet.user }}>
+      <TransferProvider walletId={wallet.id}>
+        <AppShell>{children}</AppShell>
+      </TransferProvider>
+    </WalletSessionProvider>
+  );
 }

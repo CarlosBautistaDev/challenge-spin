@@ -6,7 +6,14 @@ import { useState } from 'react';
 import { z } from 'zod';
 import { ArrowUpRight, Home, Users, LogOut, ShieldCheck, ArrowRight, Wallet } from 'lucide-react';
 import { api } from '@/lib/api';
-import { announceAuthChange } from '@/lib/auth-events';
+import {
+  announceAuthChange,
+  clearPendingTransfers,
+  invalidateClientSession,
+} from '@/lib/auth-events';
+import { AppError } from '@/lib/errors';
+import { useWalletSession } from '@/features/auth/wallet-session';
+import { ActiveTransferNotice } from '@/features/transfers/active-transfer-notice';
 import { Avatar, Brand, Button, ErrorState } from './ui';
 
 const navigation = [
@@ -15,6 +22,7 @@ const navigation = [
   { href: '/contacts', label: 'Contactos', icon: Users },
 ];
 export function AppShell({ children }: { children: React.ReactNode }) {
+  const { user } = useWalletSession();
   const pathname = usePathname();
   const router = useRouter();
   const client = useQueryClient();
@@ -25,7 +33,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     setError(null);
     try {
       await api('/api/session', z.object({ ok: z.boolean() }), { method: 'DELETE' });
+      invalidateClientSession(new AppError('UNAUTHORIZED', 'Has cerrado tu sesión.', 401));
       client.clear();
+      clearPendingTransfers();
       announceAuthChange();
       router.replace('/login');
       router.refresh();
@@ -91,14 +101,15 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
           <div className="profile">
             <div>
-              <strong>Alex Morgan</strong>
+              <strong>{user.name}</strong>
               <span>Cuenta personal</span>
             </div>
-            <Avatar name="Alex Morgan" small />
+            <Avatar name={user.name} small />
           </div>
         </header>
         <main id="main" className="main-content">
           {error !== null && <ErrorState error={error} retry={logout} />}
+          <ActiveTransferNotice />
           {children}
           <footer className="main-footer">
             <span>

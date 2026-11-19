@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { AlertCircle, ArrowRight, LoaderCircle } from 'lucide-react';
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
-import { AppError } from '@/lib/errors';
+import type { ComponentPropsWithRef, ReactNode } from 'react';
+import { AppError, isSessionError } from '@/lib/errors';
 
 export function Brand({ light = false }: { light?: boolean }) {
   return (
@@ -22,7 +22,7 @@ export function Button({
   className = '',
   disabled,
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & {
+}: ComponentPropsWithRef<'button'> & {
   busy?: boolean;
   variant?: 'primary' | 'secondary' | 'ghost';
 }) {
@@ -61,8 +61,7 @@ export function Avatar({
   );
 }
 export function ErrorState({ error, retry }: { error: unknown; retry?: () => void }) {
-  const expired =
-    error instanceof AppError && ['UNAUTHORIZED', 'SESSION_CHANGED'].includes(error.code);
+  const expired = isSessionError(error);
   return (
     <div className="error-state" role="alert">
       <AlertCircle size={22} aria-hidden="true" />
@@ -71,6 +70,9 @@ export function ErrorState({ error, retry }: { error: unknown; retry?: () => voi
           {expired ? 'Vuelve a entrar a tu cuenta' : 'Algo no salió como esperábamos'}
         </strong>
         <p>{error instanceof Error ? error.message : 'Intenta nuevamente en un momento.'}</p>
+        {error instanceof AppError && error.requestId && (
+          <small>Referencia de ayuda: {error.requestId}</small>
+        )}
         {expired ? (
           <Link href="/login" className="text-link">
             Ir al inicio de sesión <ArrowRight size={16} />
@@ -83,6 +85,23 @@ export function ErrorState({ error, retry }: { error: unknown; retry?: () => voi
           )
         )}
       </div>
+    </div>
+  );
+}
+export function QueryRefreshWarning({ error, retry }: { error: unknown; retry: () => void }) {
+  return (
+    <div className="refresh-warning" role="status">
+      <AlertCircle size={20} aria-hidden="true" />
+      <div>
+        <strong>No pudimos actualizar tu información</strong>
+        <p>Conservamos los últimos datos disponibles. Puedes intentar actualizarlos de nuevo.</p>
+        {error instanceof AppError && error.requestId && (
+          <small>Referencia de ayuda: {error.requestId}</small>
+        )}
+      </div>
+      <Button type="button" variant="secondary" onClick={retry}>
+        Actualizar
+      </Button>
     </div>
   );
 }

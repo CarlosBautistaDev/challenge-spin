@@ -2,7 +2,12 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { subscribeAuthChange } from '@/lib/auth-events';
+import {
+  subscribeAuthChange,
+  clearPendingTransfers,
+  invalidateClientSession,
+} from '@/lib/auth-events';
+import { AppError } from '@/lib/errors';
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(
     () =>
@@ -17,7 +22,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
   useEffect(
     () =>
       subscribeAuthChange(() => {
+        invalidateClientSession(
+          new AppError('SESSION_CHANGED', 'La sesión cambió. Vuelve a entrar.', 409),
+        );
         client.clear();
+        clearPendingTransfers();
         router.replace('/login');
         router.refresh();
       }),

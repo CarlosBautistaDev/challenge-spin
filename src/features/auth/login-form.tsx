@@ -2,14 +2,21 @@
 import { useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { z } from 'zod';
+import { useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, ArrowUpRight, ShieldCheck, Sparkles, Wallet } from 'lucide-react';
 import { loginSchema } from '@/lib/contracts';
 import { api } from '@/lib/api';
-import { announceAuthChange } from '@/lib/auth-events';
+import {
+  announceAuthChange,
+  clearPendingTransfers,
+  invalidateClientSession,
+} from '@/lib/auth-events';
+import { AppError } from '@/lib/errors';
 import { Brand, Button, ErrorState } from '@/components/ui';
 
 export function LoginForm() {
   const router = useRouter();
+  const client = useQueryClient();
   const inputRef = useRef<HTMLInputElement>(null);
   const [identity, setIdentity] = useState('');
   const [fieldError, setFieldError] = useState('');
@@ -33,6 +40,9 @@ export function LoginForm() {
         z.object({ user: z.object({ name: z.string(), identity: z.string() }) }),
         { method: 'POST', body: JSON.stringify(result.data) },
       );
+      invalidateClientSession(new AppError('SESSION_CHANGED', 'La sesión cambió.', 409));
+      client.clear();
+      clearPendingTransfers();
       announceAuthChange();
       router.replace('/home');
       router.refresh();

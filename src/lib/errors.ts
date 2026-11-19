@@ -4,10 +4,14 @@ export class AppError extends Error {
     public readonly code: ErrorCode,
     message: string,
     public readonly status = 400,
+    public readonly requestId?: string,
   ) {
     super(message);
     this.name = 'AppError';
   }
+}
+export function isSessionError(error: unknown): error is AppError {
+  return error instanceof AppError && ['UNAUTHORIZED', 'SESSION_CHANGED'].includes(error.code);
 }
 export function asAppError(error: unknown): AppError {
   if (error instanceof AppError) return error;
